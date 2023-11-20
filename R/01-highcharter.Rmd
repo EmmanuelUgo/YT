@@ -1,0 +1,140 @@
+---
+title: "01-highcharter"
+output: html_document
+date: "2023-11-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(highcharter)
+```
+
+```{r}
+tuesdata <- tidytuesdayR::tt_load('2023-11-14')
+```
+
+```{r}
+sales_data <- tuesdata$diwali_sales_data %>% 
+  janitor::clean_names()
+```
+
+```{r}
+amount_by_state <-
+  sales_data %>%
+  count(state,
+        wt = sum(amount, na.rm = TRUE),
+        name = "total_amount")
+```
+
+```{r}
+hcmap("countries/in/in-all")
+hcmap("countries/in/custom/in-all-disputed")
+```
+
+```{r}
+mapdata <- get_data_from_map(download_map_data("countries/in/custom/in-all-disputed"))
+
+glimpse(mapdata)
+
+amount_by_state %>% 
+  filter(!state %in% mapdata$name)
+
+mapdata %>% 
+  filter(str_detect(name, "Delhi"))
+```
+
+```{r}
+amount_by_state <-
+  amount_by_state %>%
+  mutate(state = ifelse(state == "Delhi", "NCT of Delhi", state))
+```
+
+```{r}
+hcmap(
+  "countries/in/custom/in-all-disputed",
+  data = amount_by_state,
+  value = "total_amount",
+  joinBy = c("name","state"),
+  name = "Total Amount",
+  dataLabels = list(enabled = TRUE, format = "{point.name}"),
+  borderColor = "#FAFAFA",
+  borderWidth = 0.1,
+  tooltip = list(
+    valueDecimals = 2,
+    valuePrefix = "₹",
+    valueSuffix = "INR"
+  )
+) %>% 
+  hc_title(
+    text = "Diwali sales by State",
+    align = "left",
+    style = list(
+      color = "black",
+      fontWeight = 'bold',
+      fontSize = 20
+    )
+  ) %>% 
+  hc_caption(
+    text = "Data: tidytuesday || X: @emm_aguila",
+    align = "left",
+    style = list(
+      color = "black",
+      fontSize = 13
+    )
+  ) %>% 
+  hc_legend(align = "left",
+            verticalAlign = "top")
+```
+
+
+```{r}
+amount_by_age <-
+  sales_data %>%
+  count(age_group,
+        wt = sum(amount, na.rm = TRUE),
+        name = "total_amount") %>% 
+  mutate(tidy_amount = prettyNum(total_amount, ","))
+```
+
+```{r}
+highchart() %>%
+  hc_add_series(
+    type = "column",
+    data = amount_by_age,
+    hcaes(x = age_group,
+          y = total_amount),
+    name = "Total Amount"
+  ) %>%
+  hc_tooltip(
+    formatter = JS(
+      "
+                   function () {
+            return '<b>' + this.point.age_group + '</b> years old spends a <br> total of <b>₹'
+            + this.point.tidy_amount + ' INR</b>';
+        }
+                   "
+    )
+  ) %>%
+  hc_xAxis(categories = amount_by_age$age_group) %>%
+  hc_plotOptions(series = list(showInLegend = FALSE)) %>%
+  hc_title(
+    text = "Diwali sales by State",
+    align = "left",
+    style = list(
+      color = "black",
+      fontWeight = 'bold',
+      fontSize = 20
+    )
+  ) %>%
+  hc_caption(
+    text = "Data: tidytuesday || X: @emm_aguila",
+    align = "left",
+    style = list(color = "black",
+                 fontSize = 13)
+  )
+```
+
