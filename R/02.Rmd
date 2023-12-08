@@ -1,0 +1,93 @@
+---
+title: ""
+output: html_document
+date: "2023-12-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+tuesdata <- tidytuesdayR::tt_load('2023-11-28')
+```
+
+```{r}
+# tuesdata$drwho_episodes %>% view()
+#   glimpse()
+# 
+# tuesdata$drwho_writers %>% count(writer, sort = T)
+```
+
+Did rating change by season?
+```{r}
+identify_seasonal_trend <- function(var, FUN = mean) {
+  episodes %>%
+    select(all_of(c("season_number", var))) %>%
+    filter(!is.na(season_number)) %>%
+    count(season_number, wt = FUN(.data[[var]])) %>%
+    ggplot(aes(
+      x = factor(season_number),
+      y = n,
+      group = 1
+    )) +
+    geom_line(size = 1.1, color = "midnightblue") +
+    labs(x = "Season", y = NULL) +
+    theme_light() +
+    theme(plot.title = element_text(size = 17, face = "bold")) +
+    scale_x_discrete(
+      label = function(x)
+        paste0("S", x)
+    )
+}
+```
+
+```{r}
+episodes <- tuesdata$drwho_episodes
+
+episodes %>% glimpse()
+  
+identify_seasonal_trend(var = "rating") +
+  labs(
+    title = "Ratings across seasons",
+    x = "Season",
+    y = "Rating"
+  )
+```
+
+Is there any trend in viewers?
+```{r}
+identify_seasonal_trend(var = "uk_viewers", FUN = sum) +
+  scale_y_continuous(label = function(x) paste0(x, "M")) +
+  labs(title = "Total Dr Who viewership across the UK")
+```
+
+
+Writers and ratings?
+```{r}
+writers <- tuesdata$drwho_writers
+
+left_join(writers, episodes, by = join_by(story_number)) %>%
+  select(writer, rating) %>%
+  group_by(writer) %>%
+  summarize(freq = n(),
+            rating = mean(rating)) %>% 
+  arrange(-freq) %>% 
+  filter(freq > 1)
+```
+
+```{r}
+left_join(writers, episodes, by = join_by(story_number)) %>%
+  select(writer, rating) %>% 
+  add_count(writer) %>% 
+  filter(n > 1) %>% 
+  mutate(writer = paste0(writer, " [", n, "]")) %>% 
+  mutate(writer = fct_reorder(writer, rating)) %>% 
+  ggplot(aes(rating, writer)) +
+  geom_boxplot() +
+  labs(title = "Ratings and Writers", x = "Rating", y = NULL) +
+  theme_light()
+```
+
+
